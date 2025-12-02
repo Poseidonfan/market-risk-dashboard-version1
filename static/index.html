@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>QQQ / SPY 短线环境风险 & 多空评分 Dashboard（自动数据）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 1080px;
+      box-sizing: border-box;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .sub {
+      margin: 0 0 12px;
+      font-size: 13px;
+      color: #9ca3af;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1.6fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .card {
+      background: #020617;
+      border-radius: 18px;
+      padding: 16px 18px;
+      border: 1px solid #1e293b;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.8);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      border: 1px solid #374151;
+      color: #e5e7eb;
+      background: #020617;
+    }
+
+    .overall-score {
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .overall-tag {
+      font-size: 13px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .overall-tag span.dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .bar {
+      position: relative;
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: #020617;
+      border: 1px solid #1f2937;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
+    .bar-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+
+    .small {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    .risk-flag {
+      font-size: 12px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #e5e7eb;
+    }
+
+    .risk-flag .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .score-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .score-number {
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .score-desc {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      border: 1px solid #374151;
+      color: #9ca3af;
+    }
+
+    .footer {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    .error {
+      color: #f97373;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .btn {
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      background: #111827;
+      color: #e5e7eb;
+      font-size: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: #1f2937;
+    }
+
+    .btn[disabled] {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    a {
+      color: #60a5fa;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>QQQ / SPY 短线环境风险 & 多空评分 Dashboard（自动数据）</h1>
+    <p class="sub">
+      后端自动通过 yfinance + FRED 获取 Junk Bond Spread、Market Breadth、价格相对均线、Put/Call、VIX、10Y–2Y 等，
+      对当前环境给出一个 0–100 的多空评分，并提示风险状态。仅为个人研究使用，不构成投资建议。
+    </p>
+  </header>
+
+  <div class="layout">
+    <!-- 左侧：整体评分 + 价格趋势 -->
+    <div class="stack">
+      <section class="card" id="overall-card">
+        <div class="card-header">
+          <div class="card-title">综合短线环境评分（针对 QQQ / SPY）</div>
+          <span class="badge" id="overall-badge">等待数据</span>
+        </div>
+        <div class="score-row">
+          <div>
+            <div class="overall-score" id="overall-score">--</div>
+            <div class="overall-tag" id="overall-tag" style="background:#111827;">
+              <span class="dot" id="overall-dot" style="background:#4b5563;"></span>
+              <span id="overall-tag-text">尚未评估</span>
+            </div>
+          </div>
+          <div>
+            <div class="risk-flag" id="risk-flag">
+              <span class="dot" id="risk-dot" style="background:#4b5563;"></span>
+              <span id="risk-flag-text">风险状态：未知</span>
+            </div>
+            <div class="small" id="confidence-text" style="margin-top:6px;">
+              置信度：--（指标过少或分歧很大时，会自动收缩评分，避免被噪音带偏）
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="bar">
+            <div id="overall-bar" class="bar-fill" style="width:0%;background:linear-gradient(90deg,#f97373,#22c55e);"></div>
+          </div>
+          <div class="bar-label-row">
+            <span>0 偏空 / 防守为主</span>
+            <span>50 震荡中性</span>
+            <span>100 偏多 / 顺势做多</span>
+          </div>
+        </div>
+        <div class="small" id="overall-comment">
+          点击右上角“刷新数据”后，这里会展示综合评分与简要解读。
+        </div>
+      </section>
+
+      <section class="card" id="price-card">
+        <div class="card-header">
+          <div class="card-title">价格 & 均线趋势（SPY / QQQ）</div>
+          <span class="badge">自动数据（yfinance）</span>
+        </div>
+        <div class="score-row">
+          <div style="flex:1;">
+            <div class="pill">SPY</div>
+            <div class="score-desc" id="spy-desc">尚未拉取数据</div>
+          </div>
+          <div style="flex:1;">
+            <div class="pill">QQQ</div>
+            <div class="score-desc" id="qqq-desc">尚未拉取数据</div>
+          </div>
+        </div>
+        <div class="score-row">
+          <div>
+            <div class="score-number" id="trend-score">--</div>
+            <div class="score-desc">价格趋势子评分（0–100，SPY / QQQ 综合）</div>
+          </div>
+          <div class="bar" style="max-width:260px;">
+            <div id="trend-bar" class="bar-fill" style="width:0%;background:linear-gradient(90deg,#f97373,#22c55e);"></div>
+          </div>
+        </div>
+        <div class="error" id="price-error"></div>
+      </section>
+    </div>
+
+    <!-- 右侧：各因子子评分 -->
+    <div class="stack">
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title">各因子子评分（0–100）</div>
+          <button class="btn" id="refresh-btn">🔄 刷新数据</button>
+        </div>
+        <div class="score-row">
+          <div style="flex:1;">
+            <div class="pill">Market Breadth</div>
+            <div class="score-number" id="breadth-score">--</div>
+            <div class="score-desc" id="breadth-comment">等待数据</div>
+          </div>
+          <div style="flex:1;">
+            <div class="pill">Junk Bond Spread</div>
+            <div class="score-number" id="junk-score">--</div>
+            <div class="score-desc" id="junk-comment">等待数据</div>
+          </div>
+        </div>
+        <div class="score-row">
+          <div style="flex:1;">
+            <div class="pill">Put/Call + VIX</div>
+            <div class="score-number" id="sentiment-score">--</div>
+            <div class="score-desc" id="sentiment-comment">等待数据</div>
+          </div>
+          <div style="flex:1;">
+            <div class="pill">Yield Curve（10Y–2Y）</div>
+            <div class="score-number" id="yc-score">--</div>
+            <div class="score-desc" id="yc-comment">等待数据</div>
+          </div>
+        </div>
+        <div class="small" id="raw-values">
+          原始指标：尚未获取。
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="footer">
+    提示：这是一个<strong>环境/情绪仪表盘</strong>，偏向 1–10 个交易日的环境判断，而不是预测单日涨跌。
+    数据来自免费公共源（yfinance / FRED），存在延迟与偶发缺失，仅供个人参考。
+  </div>
+
+  <script>
+    function clamp(v, lo, hi) {
+      return Math.max(lo, Math.min(hi, v));
+    }
+
+    function updateBar(el, score) {
+      if (score === null || score === undefined || isNaN(score)) {
+        el.style.width = "0%";
+        return;
+      }
+      el.style.width = clamp(score, 0, 100) + "%";
+    }
+
+    function fmtPct(x) {
+      if (x === null || x === undefined || isNaN(x)) return "--";
+      return x.toFixed(1) + "%";
+    }
+
+    function fmt(x, digits=2) {
+      if (x === null || x === undefined || isNaN(x)) return "--";
+      return x.toFixed(digits);
+    }
+
+    async function loadMetrics() {
+      const btn = document.getElementById("refresh-btn");
+      const priceErrEl = document.getElementById("price-error");
+      btn.disabled = true;
+      btn.textContent = "加载中…";
+      priceErrEl.textContent = "";
+
+      try {
+        const res = await fetch("/metrics");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+
+        const raw = data.raw || {};
+        const scores = data.scores || {};
+        const risk = data.risk_flag || {};
+        const spy = raw.spy;
+        const qqq = raw.qqq;
+
+        const spyDescEl = document.getElementById("spy-desc");
+        const qqqDescEl = document.getElementById("qqq-desc");
+
+        function buildPriceDesc(m) {
+          if (!m) return "暂无数据。";
+          const flags = [];
+          if (m.price > m.ma50) flags.push("在 50 日线上方");
+          else flags.push("跌破 50 日线");
+          if (m.price > m.ma100) flags.push("在 100 日线上方");
+          else flags.push("跌破 100 日线");
+          if (m.price > m.ma200) flags.push("在 200 日线上方");
+          else flags.push("跌破 200 日线");
+
+          const dev200 = (m.price - m.ma200) / m.ma200;
+          let devTxt = "";
+          if (Math.abs(dev200) < 0.03) devTxt = "距离 200 日线不远，处中性区。";
+          else if (dev200 > 0) devTxt = "相对 200 日线偏上（乖离约 " + (dev200*100).toFixed(1) + "%）。";
+          else devTxt = "相对 200 日线偏下（乖离约 " + (dev200*100).toFixed(1) + "%）。";
+
+          return (
+            "现价 " + m.price.toFixed(2) +
+            "，50/100/200 日线约为 " +
+            m.ma50.toFixed(2) + " / " +
+            m.ma100.toFixed(2) + " / " +
+            m.ma200.toFixed(2) +
+            "；" + flags.join("，") + "；" + devTxt
+          );
+        }
+
+        spyDescEl.textContent = buildPriceDesc(spy);
+        qqqDescEl.textContent = buildPriceDesc(qqq);
+
+        const trendScore = scores.trend;
+        document.getElementById("trend-score").textContent =
+          trendScore === null || trendScore === undefined ? "--" : trendScore.toFixed(0);
+        updateBar(document.getElementById("trend-bar"), trendScore);
+        if (!spy && !qqq) {
+          priceErrEl.textContent = "SPY / QQQ 数据获取失败，价格趋势评分暂不可用。";
+        }
+
+        const breadthScore = scores.breadth;
+        const junkScore = scores.junk;
+        const sentimentScore = scores.sentiment;
+        const ycScore = scores.yc;
+
+        const breadthCommentEl = document.getElementById("breadth-comment");
+        const junkCommentEl = document.getElementById("junk-comment");
+        const sentimentCommentEl = document.getElementById("sentiment-comment");
+        const ycCommentEl = document.getElementById("yc-comment");
+
+        const breadthPct = raw.breadth_pct;
+        if (breadthScore === null || breadthScore === undefined) {
+          document.getElementById("breadth-score").textContent = "--";
+          breadthCommentEl.textContent = "未能获取 Breadth 指标（例如 ^SPXA50R），可能是数据源暂不可用。";
+        } else {
+          document.getElementById("breadth-score").textContent = breadthScore.toFixed(0);
+          if (breadthPct < 30)
+            breadthCommentEl.textContent = "多数成份股跌破 50 日线，内部广度偏弱，环境偏空但有反弹潜力。";
+          else if (breadthPct < 50)
+            breadthCommentEl.textContent = "Breadth 偏弱，指数可能被少数权重股支撑，短线不宜过度乐观。";
+          else if (breadthPct < 80)
+            breadthCommentEl.textContent = "多数成份股站在 50 日线之上，内部结构健康，利好多头。";
+          else if (breadthPct < 95)
+            breadthCommentEl.textContent = "Breadth 较为极端，短线虽强但存在获利回吐风险。";
+          else
+            breadthCommentEl.textContent = "几乎所有成份股都在 50 日线之上，极度一致，需警惕短线反向波动。";
+        }
+
+        if (junkScore === null || junkScore === undefined) {
+          document.getElementById("junk-score").textContent = "--";
+          junkCommentEl.textContent = "未能获取 Junk Bond Spread（FRED / BAMLH0A0HYM2），请检查后端 FRED_API_KEY。";
+        } else {
+          document.getElementById("junk-score").textContent = junkScore.toFixed(0);
+          const s = raw.junk_oas_bp;
+          if (s < 250)
+            junkCommentEl.textContent = "高收益债利差极度紧凑，信用环境很好但也可能存在“太乐观”的隐忧。";
+          else if (s < 350)
+            junkCommentEl.textContent = "信用利差整体偏紧，说明风险偏好尚可，对股市是加分。";
+          else if (s < 500)
+            junkCommentEl.textContent = "利差明显走宽，信用开始有压力，对高贝塔资产形成掣肘。";
+          else if (s < 800)
+            junkCommentEl.textContent = "高收益债利差已经很紧张，风险偏好显著下降，需要警惕信用事件。";
+          else
+            junkCommentEl.textContent = "极端宽的利差水平，说明市场高度紧张，务必控制整体风险暴露。";
+        }
+
+        if (sentimentScore === null || sentimentScore === undefined) {
+          document.getElementById("sentiment-score").textContent = "--";
+          sentimentCommentEl.textContent = "未能有效获取 Put/Call 或 VIX。";
+        } else {
+          document.getElementById("sentiment-score").textContent = sentimentScore.toFixed(0);
+          const putcall = raw.put_call;
+          const vix = raw.vix;
+          const parts = [];
+          if (putcall !== null && putcall !== undefined && !isNaN(putcall)) {
+            if (putcall < 0.6)
+              parts.push("Put/Call 很低，情绪偏乐观，短线容易出现反向波动。");
+            else if (putcall < 0.9)
+              parts.push("Put/Call 偏正常略偏多，情绪中性到温和乐观。");
+            else if (putcall < 1.2)
+              parts.push("Put/Call 偏高，说明防守单增多，反而利好中期向上。");
+            else
+              parts.push("Put/Call 极高，恐慌情绪明显，但也可能孕育反弹。");
+          }
+          if (vix !== null && vix !== undefined && !isNaN(vix)) {
+            if (vix < 12)
+              parts.push("VIX 极低，市场非常平静，需防止突发波动。");
+            else if (vix < 20)
+              parts.push("VIX 在常规区间，波动环境温和。");
+            else if (vix < 30)
+              parts.push("VIX 略高，波动放大，注意控制仓位和杠杆。");
+            else
+              parts.push("VIX 显著升高，市场风险偏好下降，谨慎防守优先。");
+          }
+          sentimentCommentEl.textContent = parts.join(" ");
+        }
+
+        if (ycScore === null || ycScore === undefined) {
+          document.getElementById("yc-score").textContent = "--";
+          ycCommentEl.textContent = "未能获取 10Y / 2Y 收益率，或数据缺失。";
+        } else {
+          document.getElementById("yc-score").textContent = ycScore.toFixed(0);
+          const yc = raw.yc_spread_bp;
+          if (yc === null || yc === undefined || isNaN(yc)) {
+            ycCommentEl.textContent = "未能获取 10Y / 2Y 收益率，或数据缺失。";
+          } else if (yc > 100)
+            ycCommentEl.textContent = "收益率曲线陡峭且为正，宏观环境偏正常，对风险资产中性略偏友好。";
+          else if (yc > 0)
+            ycCommentEl.textContent = "曲线略呈正斜率，尚算健康。";
+          else if (yc > -50)
+            ycCommentEl.textContent = "轻微倒挂，宏观预期略有担忧，但对短线走势影响有限。";
+          else if (yc > -150)
+            ycCommentEl.textContent = "曲线显著倒挂，说明中长期经济担忧较大，对整体估值形成约束。";
+          else
+            ycCommentEl.textContent = "深度倒挂，往往对应紧缩后期或经济下行担忧，需高度重视中期风险。";
+        }
+
+        const overall = scores.overall;
+        const std = scores.std;
+        const count = scores.count;
+
+        const overallScoreEl = document.getElementById("overall-score");
+        const overallBadge = document.getElementById("overall-badge");
+        const overallTag = document.getElementById("overall-tag");
+        const overallDot = document.getElementById("overall-dot");
+        const overallTagText = document.getElementById("overall-tag-text");
+        const overallBar = document.getElementById("overall-bar");
+        const overallComment = document.getElementById("overall-comment");
+        const confText = document.getElementById("confidence-text");
+
+        if (overall === null || overall === undefined || isNaN(overall)) {
+          overallScoreEl.textContent = "--";
+          overallBadge.textContent = "数据不足";
+          overallTagText.textContent = "尚未评估";
+          updateBar(overallBar, null);
+          overallComment.textContent = "至少需要价格趋势 + 若干宏观/情绪指标，才有参考价值。";
+          confText.textContent = "置信度：--";
+        } else {
+          overallScoreEl.textContent = overall.toFixed(0);
+          updateBar(overallBar, overall);
+
+          let tagColor = "#111827";
+          let dotColor = "#4b5563";
+          let tagTxt = "";
+
+          if (overall >= 65) {
+            tagColor = "#064e3b";
+            dotColor = "#22c55e";
+            tagTxt = "短线偏多：顺势做多为主，但注意追高风险。";
+            overallBadge.textContent = "环境偏多";
+          } else if (overall >= 45) {
+            tagColor = "#111827";
+            dotColor = "#fbbf24";
+            tagTxt = "震荡中性：多空力量接近平衡，以价位和结构为主。";
+            overallBadge.textContent = "震荡区";
+          } else {
+            tagColor = "#7f1d1d";
+            dotColor = "#f97373";
+            tagTxt = "短线偏空：防守优先，逢高减仓 / 对冲风险。";
+            overallBadge.textContent = "环境偏空";
+          }
+
+          overallTag.style.background = tagColor;
+          overallDot.style.background = dotColor;
+          overallTagText.textContent = tagTxt;
+
+          let confMsg;
+          if (!count || count <= 2) {
+            confMsg = "置信度：较低（参与合成的因子数量较少，建议仅作参考）。";
+          } else if (std > 25) {
+            confMsg = "置信度：较低（各因子分歧较大，模型已对总分进行收缩处理）。";
+          } else if (std > 15) {
+            confMsg = "置信度：中等（部分因子之间有分歧，建议结合价格和基本面一起看）。";
+          } else {
+            confMsg = "置信度：中等偏高（主要因子方向大体一致，但仍需防范突发数据/消息）。";
+          }
+          confMsg += "（参与因子数量：" + count + "，分歧标准差约 " + (std || 0).toFixed(1) + " 分）";
+          confText.textContent = confMsg;
+
+          overallComment.textContent =
+            "综合考虑价格趋势、内部广度、信用利差、情绪（Put/Call + VIX）以及收益率曲线，当前环境给出的多空评分为 " +
+            overall.toFixed(0) + " 分。请结合你自己的持仓结构和风险承受能力使用。";
+        }
+
+        const riskFlag = document.getElementById("risk-flag");
+        const riskDot = document.getElementById("risk-dot");
+        const riskText = document.getElementById("risk-flag-text");
+        if (risk && risk.text) {
+          riskText.textContent = risk.text;
+        }
+        if (risk && risk.color) {
+          riskFlag.style.borderColor = risk.color;
+          riskDot.style.background = risk.color;
+        }
+
+        const rawEl = document.getElementById("raw-values");
+        const parts = [];
+        if (raw.breadth_pct !== null && raw.breadth_pct !== undefined)
+          parts.push("Breadth（^SPXA50R）：约 " + fmt(raw.breadth_pct, 1) + "%");
+        if (raw.junk_oas_bp !== null && raw.junk_oas_bp !== undefined)
+          parts.push("Junk OAS（BAMLH0A0HYM2）：约 " + fmt(raw.junk_oas_bp, 0) + " bp");
+        if (raw.put_call !== null && raw.put_call !== undefined)
+          parts.push("Put/Call（^CPC）：约 " + fmt(raw.put_call, 2));
+        if (raw.vix !== null && raw.vix !== undefined)
+          parts.push("VIX（^VIX）：约 " + fmt(raw.vix, 2));
+        if (raw.y10 !== null && raw.y10 !== undefined && raw.y2 !== null && raw.y2 !== undefined)
+          parts.push("10Y ≈ " + fmt(raw.y10, 2) + "%，2Y ≈ " + fmt(raw.y2, 2) + "%，10Y–2Y ≈ " + fmt(raw.yc_spread_bp, 0) + " bp");
+
+        rawEl.textContent =
+          parts.length ? ("原始指标：" + parts.join("；")) : "原始指标：部分数据未获取成功。";
+
+      } catch (e) {
+        console.error(e);
+        document.getElementById("overall-badge").textContent = "请求失败";
+        document.getElementById("overall-comment").textContent =
+          "调用 /metrics 接口失败，可能是后端未正确部署或暂时不可用。";
+        document.getElementById("price-error").textContent =
+          "无法从后端获取 SPY / QQQ / 宏观指标，请检查服务是否运行正常。";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "🔄 刷新数据";
+      }
+    }
+
+    document.getElementById("refresh-btn").addEventListener("click", loadMetrics);
+    loadMetrics();
+  </script>
+</body>
+</html>
